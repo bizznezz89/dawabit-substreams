@@ -1,6 +1,8 @@
 services:
   main:
-    image: ghcr.io/streamingfast/substreams-starter:v0.1.4
+    build:
+      context: .
+      dockerfile: Dockerfile
     platform: linux/amd64
     volumes:
       - ..:/workspace:cached

@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/rust:1.0.14-bullseye
+FROM mcr.microsoft.com/devcontainers/rust:1-bookworm
 
 RUN rustup target add wasm32-unknown-unknown ; rustup update
 
@@ -9,7 +9,7 @@ RUN cargo install protoc-gen-prost protoc-gen-prost-crate
 
 RUN apt-get -y install --no-install-recommends ca-certificates gnupg2 tar gcc make pkg-config netcat-openbsd
 
-RUN LINK=$(curl -s https://api.github.com/repos/bufbuild/buf/releases/latest | awk "/download.url.*buf-Linux-$(uname -m)\"/ {print \$2}" | sed 's/"//g') && curl -L $LINK -o /usr/bin/buf && chmod +x /usr/bin/buf
+RUN curl -fsSL "https://github.com/bufbuild/buf/releases/latest/download/buf-Linux-x86_64" -o /usr/local/bin/buf && chmod +x /usr/local/bin/buf
 RUN ARCH=$(dpkg --print-architecture); curl -LO https://go.dev/dl/go1.22.5.linux-$ARCH.tar.gz && tar -C /usr/local -xzf go1.22.5.linux-$ARCH.tar.gz && rm go1.22.5.linux-$ARCH.tar.gz
 RUN ARCH=$(dpkg --print-architecture); curl -LO https://github.com/tinygo-org/tinygo/releases/download/v0.32.0/tinygo_0.32.0_$ARCH.deb && dpkg -i tinygo_0.32.0_$ARCH.deb && rm tinygo_0.32.0_$ARCH.deb
 

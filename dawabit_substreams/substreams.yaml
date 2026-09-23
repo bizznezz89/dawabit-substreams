@@ -1,0 +1,117 @@
+specVersion: v0.1.0
+package:
+  name: dawabit_substreams
+  version: v0.1.0
+  url: https://github.com/bizznezz89/dawabit-substreams
+  description: Substreams module for DaWabit protocol discovery on Robinhood Chain Mainnet
+
+imports:
+    ethcommon: https://spkg.io/streamingfast/ethereum-common-v0.3.3.spkg
+
+protobuf:
+  files:
+    - contract.proto
+  importPaths:
+    - ./proto
+  excludePaths:
+    - sf/substreams
+    - google
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/substreams.wasm
+
+modules:
+  - name: map_curve_discoveries
+    kind: map
+    initialBlock: 66552064
+    blockFilter:
+      module: ethcommon:index_events
+      query:
+        string: evt_addr:0x0e54a12db2d6b8f309269ef98f8b9c2764aa3a92
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:contract.v1.DiscoveredCurves
+
+  - name: store_curves
+    kind: store
+    initialBlock: 66552064
+    updatePolicy: set
+    valueType: proto:contract.v1.DiscoveredCurve
+    inputs:
+      - map: map_curve_discoveries
+
+
+  - name: map_curve_activity
+    kind: map
+    initialBlock: 66552064
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_curves
+        mode: get
+    output:
+      type: proto:contract.v1.CurveActivities
+
+  - name: map_amm_discoveries
+    kind: map
+    initialBlock: 66552064
+    blockFilter:
+      module: ethcommon:index_events
+      query:
+        string: evt_addr:0x5ecc1ab2ca5e11629fce19495669dfbe0e78c3d4
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:contract.v1.DiscoveredAmmPools
+
+  - name: store_amm_pools
+    kind: store
+    initialBlock: 66552064
+    updatePolicy: set
+    valueType: proto:contract.v1.DiscoveredAmmPool
+    inputs:
+      - map: map_amm_discoveries
+
+  - name: map_amm_activity
+    kind: map
+    initialBlock: 66552064
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_amm_pools
+        mode: get
+    output:
+      type: proto:contract.v1.AmmActivities
+
+  - name: map_events
+    kind: map
+    initialBlock: 66552064
+    blockFilter:
+      module: ethcommon:index_events
+      query:
+        string: evt_addr:0x0e54a12db2d6b8f309269ef98f8b9c2764aa3a92 || evt_addr:0x48acf9c62384a6c15cca80f6307cc29a5be2580b || evt_addr:0x5ecc1ab2ca5e11629fce19495669dfbe0e78c3d4 || evt_addr:0x4c693c74edf24520154d5ac0af35a8ab5530b663 || evt_addr:0xbc3aa39470ae2a71df23af38ff98d26d44317332
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:contract.v1.Events
+  - name: map_calls
+    kind: map
+    initialBlock: 66552064
+    blockFilter:
+      module: ethcommon:index_calls
+      query:
+        string: call_to:0x0e54a12db2d6b8f309269ef98f8b9c2764aa3a92 || call_to:0x48acf9c62384a6c15cca80f6307cc29a5be2580b || call_to:0x5ecc1ab2ca5e11629fce19495669dfbe0e78c3d4 || call_to:0x4c693c74edf24520154d5ac0af35a8ab5530b663 || call_to:0xbc3aa39470ae2a71df23af38ff98d26d44317332
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:contract.v1.Calls
+  - name: map_events_calls
+    kind: map
+    initialBlock: 66552064
+    inputs:
+      - map: map_events
+      - map: map_calls
+    output:
+      type: proto:contract.v1.EventsCalls
+network: robinhood

@@ -1,0 +1,157 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "sf/ethereum/type/v2/type.proto";
+
+package contract.v1;
+
+
+message Events {
+    repeated .sf.ethereum.type.v2.Log logs = 1;
+}
+
+message Calls {
+    repeated .sf.ethereum.type.v2.Call calls = 1;
+}
+
+
+message EventsCalls {
+    
+    Events events = 1;
+    
+    
+    Calls calls = 2;
+    
+}
+
+message DiscoveredCurve {
+    bytes curve = 1;
+    bytes token = 2;
+    bytes quote_token = 3;
+    bytes creator = 4;
+    string curve_allocation = 5;
+    string liquidity_reserve = 6;
+    string starting_price = 7;
+    string slope = 8;
+    string graduation_threshold = 9;
+    uint32 token_decimals = 10;
+    uint64 block_number = 11;
+    bytes transaction_hash = 12;
+    uint64 ordinal = 13;
+}
+
+message DiscoveredCurves {
+    repeated DiscoveredCurve curves = 1;
+}
+
+message CurveActivity {
+    string event_type = 1;
+    bool canonical_trade = 2;
+
+    bytes curve = 3;
+    bytes token = 4;
+    bytes quote_token = 5;
+    uint32 token_decimals = 6;
+
+    bytes actor = 7;
+
+    string token_amount = 8;
+    string curve_quote = 9;
+    string protocol_fee = 10;
+
+    string gross_quote_in = 11;
+    string net_quote_out = 12;
+
+    string tokens_sold_after = 13;
+    string quote_reserve_after = 14;
+
+    string gross_quote_limit = 15;
+    string actual_quote_in = 16;
+    string refund_quote = 17;
+
+    string allocation = 18;
+
+    uint32 previous_state = 19;
+    uint32 new_state = 20;
+
+    bytes graduation_router = 21;
+    string graduation_quote_amount = 22;
+
+    uint64 block_number = 23;
+    bytes transaction_hash = 24;
+    uint64 ordinal = 25;
+}
+
+message CurveActivities {
+    repeated CurveActivity activities = 1;
+}
+
+message DiscoveredAmmPool {
+    bytes pair = 1;
+    bytes curve = 2;
+    bytes token = 3;
+    bytes quote_token = 4;
+
+    string token_amount = 5;
+    string quote_amount = 6;
+    string liquidity = 7;
+
+    uint64 block_number = 8;
+    bytes transaction_hash = 9;
+    uint64 ordinal = 10;
+
+    bytes token0 = 11;
+    bytes token1 = 12;
+    bool token_is_token0 = 13;
+}
+
+message DiscoveredAmmPools {
+    repeated DiscoveredAmmPool pools = 1;
+}
+
+
+message AmmActivity {
+    string event_type = 1;
+
+    bytes pair = 2;
+    bytes curve = 3;
+    bytes token = 4;
+    bytes quote_token = 5;
+
+    bytes sender = 6;
+    bytes to = 7;
+
+    string amount0 = 8;
+    string amount1 = 9;
+
+    string amount0_in = 10;
+    string amount1_in = 11;
+    string amount0_out = 12;
+    string amount1_out = 13;
+
+    string reserve0 = 14;
+    string reserve1 = 15;
+
+    uint64 block_number = 16;
+    bytes transaction_hash = 17;
+    uint64 ordinal = 18;
+
+    bytes token0 = 19;
+    bytes token1 = 20;
+    bool token_is_token0 = 21;
+
+    string token_amount = 22;
+    string quote_amount = 23;
+
+    string token_amount_in = 24;
+    string quote_amount_in = 25;
+    string token_amount_out = 26;
+    string quote_amount_out = 27;
+
+    string token_reserve = 28;
+    string quote_reserve = 29;
+}
+
+message AmmActivities {
+    repeated AmmActivity activities = 1;
+}

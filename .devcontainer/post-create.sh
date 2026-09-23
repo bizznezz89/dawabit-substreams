@@ -16,4 +16,4 @@ echo 'PATH="./node_modules/.bin:$PATH:/workspace/.devcontainer/bin"' >> ~/.bashr
 
 git config --global --add safe.directory /workspace
 /workspace/.devcontainer/bin/dev-restart-postgres # fix an issue (race?) on github codespaces where vscode changes the ownership of those files..
-/workspace/.devcontainer/bin/dev-update
+# Disabled: auto-update installs a Substreams CLI incompatible with Debian 11 glibc 2.31
