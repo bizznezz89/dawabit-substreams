@@ -200,10 +200,10 @@ These expose lower-level events and calls for the statically configured ReLaunch
 substreams build
 ```
 
-The v0.1.0 package builds as:
+The v0.1.1 package builds as:
 
 ```text
-dawabit-substreams-v0.1.0.spkg
+dawabit-substreams-v0.1.1.spkg
 ```
 
 ## Run on Robinhood Chain
