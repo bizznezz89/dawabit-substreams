@@ -1,7 +1,7 @@
 specVersion: v0.1.0
 package:
   name: dawabit_substreams
-  version: v0.1.1
+  version: v0.2.0
   url: https://github.com/bizznezz89/dawabit-substreams
   description: Substreams module for DaWabit protocol discovery on Robinhood Chain Mainnet
   image: ./dawabit_logo_512x512.png
@@ -84,6 +84,15 @@ modules:
         mode: get
     output:
       type: proto:contract.v1.AmmActivities
+
+  - name: map_market_activity
+    kind: map
+    initialBlock: 66552064
+    inputs:
+      - map: map_curve_activity
+      - map: map_amm_activity
+    output:
+      type: proto:contract.v1.MarketActivities
 
   - name: map_events
     kind: map

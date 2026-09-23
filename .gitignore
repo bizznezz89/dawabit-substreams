@@ -4,3 +4,6 @@ generated/
 .env
 .env.*
 .DS_Store
+
+# Substreams local replay output
+replay.log

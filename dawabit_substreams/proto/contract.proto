@@ -155,3 +155,27 @@ message AmmActivity {
 message AmmActivities {
     repeated AmmActivity activities = 1;
 }
+
+message MarketActivity {
+    string market_stage = 1;
+    string event_type = 2;
+    bool canonical_trade = 3;
+
+    bytes market = 4;
+    bytes curve = 5;
+    bytes pair = 6;
+    bytes token = 7;
+    bytes quote_token = 8;
+
+    uint64 block_number = 9;
+    bytes transaction_hash = 10;
+    uint64 ordinal = 11;
+
+    CurveActivity curve_activity = 12;
+    AmmActivity amm_activity = 13;
+}
+
+message MarketActivities {
+    repeated MarketActivity activities = 1;
+}
+

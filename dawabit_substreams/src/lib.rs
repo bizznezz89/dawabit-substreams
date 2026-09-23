@@ -625,3 +625,54 @@ fn map_amm_activity(
 
     Ok(contract::AmmActivities { activities })
 }
+
+
+#[substreams::handlers::map]
+fn map_market_activity(
+    curve_activities: contract::CurveActivities,
+    amm_activities: contract::AmmActivities,
+) -> Result<contract::MarketActivities, substreams::errors::Error> {
+    let mut activities = Vec::with_capacity(
+        curve_activities.activities.len() + amm_activities.activities.len()
+    );
+
+    for activity in curve_activities.activities {
+        activities.push(contract::MarketActivity {
+            market_stage: "CURVE".to_string(),
+            event_type: activity.event_type.clone(),
+            canonical_trade: activity.canonical_trade,
+            market: activity.curve.clone(),
+            curve: activity.curve.clone(),
+            pair: Vec::new(),
+            token: activity.token.clone(),
+            quote_token: activity.quote_token.clone(),
+            block_number: activity.block_number,
+            transaction_hash: activity.transaction_hash.clone(),
+            ordinal: activity.ordinal,
+            curve_activity: Some(activity),
+            amm_activity: None,
+        });
+    }
+
+    for activity in amm_activities.activities {
+        activities.push(contract::MarketActivity {
+            market_stage: "AMM".to_string(),
+            event_type: activity.event_type.clone(),
+            canonical_trade: activity.event_type == "SWAP",
+            market: activity.pair.clone(),
+            curve: activity.curve.clone(),
+            pair: activity.pair.clone(),
+            token: activity.token.clone(),
+            quote_token: activity.quote_token.clone(),
+            block_number: activity.block_number,
+            transaction_hash: activity.transaction_hash.clone(),
+            ordinal: activity.ordinal,
+            curve_activity: None,
+            amm_activity: Some(activity),
+        });
+    }
+
+    activities.sort_by_key(|activity| activity.ordinal);
+
+    Ok(contract::MarketActivities { activities })
+}

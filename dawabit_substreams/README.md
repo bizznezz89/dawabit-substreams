@@ -184,6 +184,60 @@ quote_amount
 
 This allows downstream bots, indexers, aggregators, and analytics systems to consume the market without independently reproducing Uniswap V2 token ordering.
 
+## Canonical Market Feed
+
+### `map_market_activity`
+
+`map_market_activity` is the canonical public feed for bots, aggregators, indexers, and other market-data consumers.
+
+It combines both ReLaunchpad trading stages into one ordered stream:
+
+```text
+Bonding Curve
+    |
+    | CurveBuy / CurveSell / lifecycle
+    v
+map_curve_activity
+    |
+    +------------------+
+                       |
+                       v
+             map_market_activity
+                       ^
+                       |
+    +------------------+
+    |
+map_amm_activity
+    ^
+    | Swap / Sync / Mint / Burn
+    |
+Graduated AMM
+```
+
+Each record identifies its market stage as either:
+
+```text
+CURVE
+AMM
+```
+
+The envelope includes:
+
+- Market address
+- Curve address
+- Pair address
+- Token address
+- Quote token address
+- Block number
+- Transaction hash
+- Ordinal
+- Event type
+- Whether the event represents a canonical trade
+
+The original `CurveActivity` or `AmmActivity` record is also embedded so consumers retain access to the complete stage-specific data.
+
+This allows consumers to follow a ReLaunchpad market through its full lifecycle using a single Substreams output module.
+
 ## Raw Protocol Modules
 
 The package also includes the original static raw protocol modules:
@@ -200,13 +254,24 @@ These expose lower-level events and calls for the statically configured ReLaunch
 substreams build
 ```
 
-The v0.1.1 package builds as:
+The v0.2.0 package builds as:
 
 ```text
-dawabit-substreams-v0.1.1.spkg
+dawabit-substreams-v0.2.0.spkg
 ```
 
 ## Run on Robinhood Chain
+
+### Canonical Market Activity
+
+```bash
+substreams run \
+  -e mainnet.robinhood.streamingfast.io:443 \
+  substreams.yaml \
+  map_market_activity \
+  --start-block 66552064 \
+  -o json
+```
 
 ### Bonding Curve Activity
 

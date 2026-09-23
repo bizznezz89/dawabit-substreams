@@ -220,4 +220,40 @@ pub struct AmmActivities {
     #[prost(message, repeated, tag="1")]
     pub activities: ::prost::alloc::vec::Vec<AmmActivity>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MarketActivity {
+    #[prost(string, tag="1")]
+    pub market_stage: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub event_type: ::prost::alloc::string::String,
+    #[prost(bool, tag="3")]
+    pub canonical_trade: bool,
+    #[prost(bytes="vec", tag="4")]
+    pub market: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes="vec", tag="5")]
+    pub curve: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes="vec", tag="6")]
+    pub pair: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes="vec", tag="7")]
+    pub token: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes="vec", tag="8")]
+    pub quote_token: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag="9")]
+    pub block_number: u64,
+    #[prost(bytes="vec", tag="10")]
+    pub transaction_hash: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag="11")]
+    pub ordinal: u64,
+    #[prost(message, optional, tag="12")]
+    pub curve_activity: ::core::option::Option<CurveActivity>,
+    #[prost(message, optional, tag="13")]
+    pub amm_activity: ::core::option::Option<AmmActivity>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MarketActivities {
+    #[prost(message, repeated, tag="1")]
+    pub activities: ::prost::alloc::vec::Vec<MarketActivity>,
+}
 // @@protoc_insertion_point(module)
