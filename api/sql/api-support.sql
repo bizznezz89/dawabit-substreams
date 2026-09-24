@@ -364,3 +364,44 @@ CREATE INDEX IF NOT EXISTS amm_pool_config_token_quote_idx
 
 COMMIT;
 
+
+-- ============================================================================
+-- RPC ingestion checkpoint history
+--
+-- Stores committed chunk boundaries so the RPC indexer can identify a common
+-- canonical ancestor after a reorg without storing a hash for every block.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS ingestion_checkpoints (
+    source TEXT NOT NULL,
+    block_number BIGINT NOT NULL,
+    block_hash TEXT NOT NULL,
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (source, block_number)
+);
+
+CREATE INDEX IF NOT EXISTS ingestion_checkpoints_source_block_idx
+    ON ingestion_checkpoints (
+        source,
+        block_number DESC
+    );
+
+-- Seed the currently committed ingestion position when upgrading an existing DB.
+INSERT INTO ingestion_checkpoints (
+    source,
+    block_number,
+    block_hash
+)
+SELECT
+    source,
+    last_processed_block,
+    last_processed_block_hash
+FROM ingestion_state
+WHERE
+    last_processed_block IS NOT NULL
+    AND last_processed_block_hash IS NOT NULL
+ON CONFLICT (source, block_number)
+DO UPDATE SET
+    block_hash = EXCLUDED.block_hash,
+    recorded_at = NOW();

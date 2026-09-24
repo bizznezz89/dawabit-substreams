@@ -1634,6 +1634,351 @@ function marketRowFromAmm(
   };
 }
 
+async function getCanonicalBlockHash(
+  blockNumber,
+) {
+  const block =
+    await client.getBlock({
+      blockNumber,
+    });
+
+  if (!block.hash) {
+    throw new Error(
+      `Block ${blockNumber} has no hash`,
+    );
+  }
+
+  return strip0x(
+    block.hash,
+  );
+}
+
+
+async function rememberCheckpoint(
+  sql,
+  blockNumber,
+  blockHash,
+) {
+  await sql.query(
+    `
+      INSERT INTO ingestion_checkpoints (
+        source,
+        block_number,
+        block_hash,
+        recorded_at
+      )
+      VALUES (
+        $1,
+        $2,
+        $3,
+        NOW()
+      )
+      ON CONFLICT (
+        source,
+        block_number
+      )
+      DO UPDATE SET
+        block_hash =
+          EXCLUDED.block_hash,
+        recorded_at =
+          NOW()
+    `,
+    [
+      SOURCE,
+      blockNumber.toString(),
+      blockHash,
+    ],
+  );
+}
+
+
+async function rollbackRpcToCheckpoint({
+  blockNumber,
+  blockHash,
+}) {
+  const sql =
+    await db.connect();
+
+  try {
+    await sql.query(
+      "BEGIN",
+    );
+
+    /*
+     * Activity tables are RPC-owned overlays.
+     * Everything above the common canonical checkpoint is discarded.
+     */
+    await sql.query(
+      `
+        DELETE FROM rpc_marketactivity
+        WHERE block_number > $1
+      `,
+      [
+        blockNumber.toString(),
+      ],
+    );
+
+    await sql.query(
+      `
+        DELETE FROM rpc_curveactivity
+        WHERE block_number > $1
+      `,
+      [
+        blockNumber.toString(),
+      ],
+    );
+
+    await sql.query(
+      `
+        DELETE FROM rpc_ammactivity
+        WHERE block_number > $1
+      `,
+      [
+        blockNumber.toString(),
+      ],
+    );
+
+    /*
+     * Remove discoveries that existed only on the orphaned RPC branch.
+     * Historical Substreams configuration is never touched.
+     */
+    await sql.query(
+      `
+        DELETE FROM amm_pool_config
+        WHERE
+          source = 'rpc'
+          AND discovery_block > $1
+      `,
+      [
+        blockNumber.toString(),
+      ],
+    );
+
+    await sql.query(
+      `
+        DELETE FROM market_config
+        WHERE
+          source = 'rpc'
+          AND creation_block > $1
+      `,
+      [
+        blockNumber.toString(),
+      ],
+    );
+
+    /*
+     * Checkpoints above the common ancestor belonged to the orphaned branch.
+     */
+    await sql.query(
+      `
+        DELETE FROM ingestion_checkpoints
+        WHERE
+          source = $1
+          AND block_number > $2
+      `,
+      [
+        SOURCE,
+        blockNumber.toString(),
+      ],
+    );
+
+    await sql.query(
+      `
+        UPDATE ingestion_state
+        SET
+          last_processed_block = $2,
+          last_processed_block_hash = $3,
+          updated_at = NOW()
+        WHERE source = $1
+      `,
+      [
+        SOURCE,
+        blockNumber.toString(),
+        blockHash,
+      ],
+    );
+
+    await sql.query(
+      "COMMIT",
+    );
+  } catch (
+    error
+  ) {
+    await sql.query(
+      "ROLLBACK",
+    );
+
+    throw error;
+  } finally {
+    sql.release();
+  }
+}
+
+
+async function verifyOrRecoverCheckpoint({
+  initialBlock,
+  lastProcessedBlock,
+  expectedHash,
+}) {
+  const canonicalHash =
+    await getCanonicalBlockHash(
+      lastProcessedBlock,
+    );
+
+  if (
+    canonicalHash ===
+    lower(
+      expectedHash,
+    )
+  ) {
+    /*
+     * Ensure upgraded databases also retain the current valid checkpoint.
+     */
+    await db.query(
+      `
+        INSERT INTO ingestion_checkpoints (
+          source,
+          block_number,
+          block_hash,
+          recorded_at
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          NOW()
+        )
+        ON CONFLICT (
+          source,
+          block_number
+        )
+        DO UPDATE SET
+          block_hash =
+            EXCLUDED.block_hash,
+          recorded_at =
+            NOW()
+      `,
+      [
+        SOURCE,
+        lastProcessedBlock.toString(),
+        canonicalHash,
+      ],
+    );
+
+    return {
+      blockNumber:
+        lastProcessedBlock,
+
+      blockHash:
+        canonicalHash,
+
+      recovered:
+        false,
+    };
+  }
+
+  console.warn({
+    reorgDetected:
+      true,
+
+    checkpoint:
+      lastProcessedBlock.toString(),
+
+    databaseHash:
+      expectedHash,
+
+    chainHash:
+      canonicalHash,
+  });
+
+  const floorBlock =
+    initialBlock > 0n
+      ? initialBlock - 1n
+      : 0n;
+
+  const history =
+    await db.query(
+      `
+        SELECT
+          block_number,
+          block_hash
+        FROM ingestion_checkpoints
+        WHERE
+          source = $1
+          AND block_number <= $2
+          AND block_number >= $3
+        ORDER BY
+          block_number DESC
+      `,
+      [
+        SOURCE,
+        lastProcessedBlock.toString(),
+        floorBlock.toString(),
+      ],
+    );
+
+  for (
+    const checkpoint of
+    history.rows
+  ) {
+    const blockNumber =
+      BigInt(
+        checkpoint.block_number,
+      );
+
+    const chainHash =
+      await getCanonicalBlockHash(
+        blockNumber,
+      );
+
+    if (
+      chainHash !==
+      lower(
+        checkpoint.block_hash,
+      )
+    ) {
+      continue;
+    }
+
+    console.warn({
+      commonCheckpoint:
+        blockNumber.toString(),
+
+      blockHash:
+        chainHash,
+
+      action:
+        "rollback_and_replay",
+    });
+
+    await rollbackRpcToCheckpoint({
+      blockNumber,
+      blockHash:
+        chainHash,
+    });
+
+    return {
+      blockNumber,
+      blockHash:
+        chainHash,
+      recovered:
+        true,
+    };
+  }
+
+  throw new Error(
+    [
+      "RPC reorg detected but no common stored checkpoint was found.",
+      `lastProcessed=${lastProcessedBlock}`,
+      `historyFloor=${floorBlock}`,
+      "Manual recovery is required.",
+    ].join(
+      " ",
+    ),
+  );
+}
+
+
 async function main() {
   const stateResult =
     await db.query(
@@ -1665,39 +2010,21 @@ async function main() {
       state.initial_block,
     );
 
-  const lastProcessedBlock =
+  let lastProcessedBlock =
     BigInt(
       state.last_processed_block,
     );
 
-  const checkpointBlock =
-    await client.getBlock({
-      blockNumber:
-        lastProcessedBlock,
+  const recoveredCheckpoint =
+    await verifyOrRecoverCheckpoint({
+      initialBlock,
+      lastProcessedBlock,
+      expectedHash:
+        state.last_processed_block_hash,
     });
 
-  const checkpointHash =
-    strip0x(
-      checkpointBlock.hash,
-    );
-
-  if (
-    checkpointHash !==
-    lower(
-      state.last_processed_block_hash,
-    )
-  ) {
-    throw new Error(
-      [
-        "RPC checkpoint hash mismatch.",
-        `database=${state.last_processed_block_hash}`,
-        `chain=${checkpointHash}`,
-        `block=${lastProcessedBlock}`,
-      ].join(
-        " ",
-      ),
-    );
-  }
+  lastProcessedBlock =
+    recoveredCheckpoint.blockNumber;
 
   const head =
     await client.getBlockNumber();
@@ -2196,6 +2523,12 @@ async function main() {
           ),
         );
       }
+
+      await rememberCheckpoint(
+        sql,
+        toBlock,
+        checkpointMeta.hash,
+      );
 
       await sql.query(
         `
