@@ -68,6 +68,8 @@ services:
       POSTGRES_HOST_AUTH_METHOD: md5
     volumes:
       - db-data:/var/lib/postgresql/data
+      - ./postgres-init/10-dawabit.sh:/docker-entrypoint-initdb.d/10-dawabit.sh:ro
+      - ../api/sql/api-support.sql:/bootstrap/api-support.sql:ro
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "graph-node"]
       interval: 30s
