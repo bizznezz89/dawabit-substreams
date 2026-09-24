@@ -1,5 +1,9 @@
+import { fileURLToPath } from "node:url";
+
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 import rateLimit from "@fastify/rate-limit";
 
 import {
@@ -22,6 +26,14 @@ import {
 import {
   registerQuoteRoute,
 } from "./quote.js";
+
+const openapiPath =
+  fileURLToPath(
+    new URL(
+      "../openapi.json",
+      import.meta.url,
+    ),
+  );
 
 const app =
   Fastify({
@@ -98,6 +110,55 @@ await app.register(
           request.url,
       }),
   },
+);
+
+await app.register(
+  swagger,
+  {
+    mode:
+      "static",
+
+    specification: {
+      path:
+        openapiPath,
+    },
+  },
+);
+
+await app.register(
+  swaggerUi,
+  {
+    routePrefix:
+      "/docs",
+
+    staticCSP:
+      true,
+
+    uiConfig: {
+      docExpansion:
+        "list",
+
+      deepLinking:
+        true,
+
+      displayOperationId:
+        true,
+    },
+  },
+);
+
+app.get(
+  "/openapi.json",
+
+  {
+    config: {
+      rateLimit:
+        false,
+    },
+  },
+
+  async () =>
+    app.swagger(),
 );
 
 registerTrendingRoute(

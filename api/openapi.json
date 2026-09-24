@@ -1,0 +1,916 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DaWabit Market Data API",
+    "version": "0.1.0",
+    "description": "Lifecycle-aware Robinhood Chain market data, discovery, liquidity, executable depth, and ReLaunchTradeRouter quote API."
+  },
+  "tags": [
+    {
+      "name": "System",
+      "description": "Service health and metadata."
+    },
+    {
+      "name": "Activity",
+      "description": "Canonical indexed curve and AMM activity."
+    },
+    {
+      "name": "Markets",
+      "description": "Lifecycle-aware market state and discovery."
+    },
+    {
+      "name": "Execution",
+      "description": "Executable market depth and TradeRouter quotes."
+    }
+  ],
+  "components": {
+    "schemas": {
+      "Address": {
+        "type": "string",
+        "pattern": "^0x[0-9a-fA-F]{40}$",
+        "example": "0xce39ca04c9c924c949172fdeeff588ab586a7db1"
+      },
+      "RawAmount": {
+        "type": "string",
+        "pattern": "^[0-9]+$",
+        "description": "Unsigned integer amount in raw token units.",
+        "example": "1000000000000000000"
+      },
+      "TokenDescriptor": {
+        "type": "object",
+        "required": [
+          "address",
+          "symbol",
+          "name",
+          "decimals"
+        ],
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "symbol": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "decimals": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "statusCode": {
+            "type": "integer"
+          },
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "Activity": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "market_stage": {
+            "type": "string",
+            "enum": [
+              "CURVE",
+              "AMM"
+            ]
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "canonical_trade": {
+            "type": "boolean"
+          },
+          "market": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "curve": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "pair": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "token": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "quote_token": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "block_number": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "transaction_hash": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "string"
+          },
+          "block_timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": true
+      },
+      "ExecutionDepthPoint": {
+        "type": "object",
+        "properties": {
+          "target_market_impact_pct": {
+            "type": "number"
+          },
+          "threshold_reached": {
+            "type": "boolean",
+            "description": "False can represent a verified maximum executable bound when the requested impact target cannot be reached."
+          },
+          "quote_method": {
+            "type": "string",
+            "enum": [
+              "quoteExactInput",
+              "quoteExactOutput"
+            ]
+          },
+          "venue": {
+            "type": "string",
+            "enum": [
+              "CURVE",
+              "AMM"
+            ]
+          },
+          "input_raw": {
+            "$ref": "#/components/schemas/RawAmount"
+          },
+          "input": {
+            "type": "string"
+          },
+          "input_symbol": {
+            "type": "string"
+          },
+          "output_raw": {
+            "$ref": "#/components/schemas/RawAmount"
+          },
+          "output": {
+            "type": "string"
+          },
+          "output_symbol": {
+            "type": "string"
+          },
+          "market_impact_pct": {
+            "type": "number"
+          },
+          "execution_deviation_excluding_fee_pct": {
+            "type": "number"
+          },
+          "effective_deviation_including_fees_pct": {
+            "type": "number"
+          },
+          "quote_verified": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true
+      },
+      "Execution": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string",
+            "example": "trade_router_depth_v1"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "venue": {
+            "type": "string",
+            "enum": [
+              "UNAVAILABLE",
+              "CURVE",
+              "AMM"
+            ]
+          },
+          "trade_router": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "current_spot_price_raw": {
+            "$ref": "#/components/schemas/RawAmount"
+          },
+          "current_spot_price": {
+            "type": "string"
+          },
+          "price_unit": {
+            "type": "string"
+          },
+          "max_executable_sell_raw": {
+            "$ref": "#/components/schemas/RawAmount"
+          },
+          "max_executable_sell": {
+            "type": "string"
+          },
+          "state_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "depth": {
+            "type": "object",
+            "properties": {
+              "buy": {
+                "type": "object",
+                "properties": {
+                  "1pct": {
+                    "$ref": "#/components/schemas/ExecutionDepthPoint"
+                  },
+                  "5pct": {
+                    "$ref": "#/components/schemas/ExecutionDepthPoint"
+                  },
+                  "10pct": {
+                    "$ref": "#/components/schemas/ExecutionDepthPoint"
+                  }
+                }
+              },
+              "sell": {
+                "type": "object",
+                "properties": {
+                  "1pct": {
+                    "$ref": "#/components/schemas/ExecutionDepthPoint"
+                  },
+                  "5pct": {
+                    "$ref": "#/components/schemas/ExecutionDepthPoint"
+                  },
+                  "10pct": {
+                    "$ref": "#/components/schemas/ExecutionDepthPoint"
+                  }
+                }
+              }
+            }
+          },
+          "quote_source": {
+            "type": "string",
+            "example": "ReLaunchTradeRouter"
+          },
+          "cache": {
+            "type": "object",
+            "properties": {
+              "hit": {
+                "type": "boolean"
+              },
+              "ttl_ms": {
+                "type": "integer"
+              },
+              "age_ms": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "additionalProperties": true
+      },
+      "TrendingMarket": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "quote_token": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "market": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "market_stage": {
+            "type": "string",
+            "enum": [
+              "CURVE",
+              "AMM"
+            ]
+          },
+          "trades": {
+            "type": "integer"
+          },
+          "unique_traders": {
+            "type": "integer"
+          },
+          "buys": {
+            "type": "integer"
+          },
+          "sells": {
+            "type": "integer"
+          },
+          "quote_volume_raw": {
+            "$ref": "#/components/schemas/RawAmount"
+          },
+          "quote_volume": {
+            "type": "string"
+          },
+          "token_symbol": {
+            "type": "string"
+          },
+          "quote_symbol": {
+            "type": "string"
+          },
+          "price_change_pct": {
+            "type": "number",
+            "nullable": true
+          },
+          "current_price_raw": {
+            "type": "string",
+            "nullable": true
+          },
+          "current_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "price_unit": {
+            "type": "string",
+            "nullable": true
+          },
+          "trend_score": {
+            "type": "number"
+          },
+          "new_market": {
+            "type": "boolean"
+          },
+          "trending": {
+            "type": "boolean"
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "liquidity": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "execution": {
+            "$ref": "#/components/schemas/Execution"
+          },
+          "signals": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "rank": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": true
+      },
+      "QuoteResponse": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "generated_at",
+          "quote_source",
+          "mode",
+          "venue",
+          "curve",
+          "token_in",
+          "token_out",
+          "request",
+          "result"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "example": "1.0"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "quote_source": {
+            "type": "string",
+            "example": "ReLaunchTradeRouter"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "EXACT_INPUT",
+              "EXACT_OUTPUT"
+            ]
+          },
+          "venue": {
+            "type": "string",
+            "enum": [
+              "UNAVAILABLE",
+              "CURVE",
+              "AMM"
+            ]
+          },
+          "curve": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "canonical_token": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "canonical_quote_token": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "token_in": {
+            "$ref": "#/components/schemas/TokenDescriptor"
+          },
+          "token_out": {
+            "$ref": "#/components/schemas/TokenDescriptor"
+          },
+          "request": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "result": {
+            "type": "object",
+            "description": "Exact-input responses expose amount_in_used, amount_out, refund and partial_fill. Exact-output responses expose amount_in, amount_out_requested and output_surplus.",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "responses": {
+      "RateLimited": {
+        "description": "Rate limit exceeded.",
+        "headers": {
+          "X-RateLimit-Limit": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "X-RateLimit-Remaining": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "X-RateLimit-Reset": {
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "Retry-After": {
+            "schema": {
+              "type": "integer"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "operationId": "health",
+        "summary": "Service health",
+        "responses": {
+          "200": {
+            "description": "API and database health.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "service": {
+                      "type": "string"
+                    },
+                    "environment": {
+                      "type": "string"
+                    },
+                    "database": {
+                      "type": "boolean"
+                    },
+                    "configuration": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/activity": {
+      "get": {
+        "tags": [
+          "Activity"
+        ],
+        "operationId": "listActivity",
+        "summary": "List canonical market activity",
+        "parameters": [
+          {
+            "name": "market",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Address"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Address"
+            }
+          },
+          {
+            "name": "event_type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "market_stage",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CURVE",
+                "AMM"
+              ]
+            }
+          },
+          {
+            "name": "canonical_trade",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Indexed market activity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "activity": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Activity"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/v1/activity/{eventId}": {
+      "get": {
+        "tags": [
+          "Activity"
+        ],
+        "operationId": "getActivity",
+        "summary": "Get canonical activity and venue-specific details",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Activity record and curve/AMM details.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "activity": {
+                      "$ref": "#/components/schemas/Activity"
+                    },
+                    "details": {
+                      "type": "object",
+                      "nullable": true,
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Activity not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/v1/trending": {
+      "get": {
+        "tags": [
+          "Markets"
+        ],
+        "operationId": "getTrendingMarkets",
+        "summary": "Rank active markets using transparent momentum signals",
+        "description": "Returns lifecycle-aware discovery, liquidity, pricing and TradeRouter-verified executable depth. executable_depth_complete means the requested depth grid has a verified target or verified executable boundary at every sample; it does not mean every target market-impact threshold is reachable.",
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "5m",
+                "1h",
+                "6h",
+                "24h",
+                "7d"
+              ],
+              "default": "24h"
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "new",
+                "trending"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ranked lifecycle markets.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "window": {
+                      "type": "string"
+                    },
+                    "keyword_filter": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "generated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "methodology": {
+                      "type": "string"
+                    },
+                    "price_signal_model": {
+                      "type": "string"
+                    },
+                    "market_context_model": {
+                      "type": "string"
+                    },
+                    "discovery_model": {
+                      "type": "string"
+                    },
+                    "liquidity_model": {
+                      "type": "string"
+                    },
+                    "execution_model": {
+                      "type": "string"
+                    },
+                    "trader_identity": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "markets": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TrendingMarket"
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid window or keyword.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/v1/markets/{address}": {
+      "get": {
+        "tags": [
+          "Markets"
+        ],
+        "operationId": "getMarket",
+        "summary": "Get lifecycle-aware market state",
+        "description": "Accepts a supported market address and returns its indexed lifecycle state, trading activity, price and associated metadata.",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Address"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Market state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Market not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/v1/quote": {
+      "get": {
+        "tags": [
+          "Execution"
+        ],
+        "operationId": "quoteTrade",
+        "summary": "Quote an exact-input or exact-output lifecycle trade",
+        "description": "Quotes through ReLaunchTradeRouter. Provide exactly one of amount_in_raw or amount_out_raw. The router automatically selects the bonding curve before graduation and AMM after graduation.",
+        "parameters": [
+          {
+            "name": "token_in",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Address"
+            }
+          },
+          {
+            "name": "token_out",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Address"
+            }
+          },
+          {
+            "name": "amount_in_raw",
+            "in": "query",
+            "description": "Exact-input mode. Mutually exclusive with amount_out_raw.",
+            "schema": {
+              "$ref": "#/components/schemas/RawAmount"
+            }
+          },
+          {
+            "name": "amount_out_raw",
+            "in": "query",
+            "description": "Exact-output mode. Mutually exclusive with amount_in_raw.",
+            "schema": {
+              "$ref": "#/components/schemas/RawAmount"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lifecycle-aware TradeRouter quote.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid address, amount or quote mode.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unsupported market.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "TradeRouter cannot currently produce the requested quote.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    }
+  }
+}
