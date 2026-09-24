@@ -69,8 +69,8 @@ CREATE INDEX IF NOT EXISTS token_metadata_lower_address_idx
 -- ---------------------------------------------------------------------------
 -- RPC ingestion checkpoint
 --
--- The initial handoff block is deployment state and is NOT hard-coded here.
--- Fresh installations must explicitly initialize their ingestion source.
+-- The RHC Substreams -> RPC handoff is an immutable deployment boundary.
+-- Fresh installations are seeded below at the verified handoff block.
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS ingestion_state (
@@ -83,6 +83,27 @@ CREATE TABLE IF NOT EXISTS ingestion_state (
 
 CREATE INDEX IF NOT EXISTS ingestion_state_updated_at_idx
     ON ingestion_state (updated_at);
+
+-- RHC permanent Substreams -> RPC handoff.
+--
+-- Substreams owns through block 71,634,044.
+-- RPC ingestion begins at block 71,634,045.
+--
+-- Never overwrite an existing deployment state during bootstrap.
+INSERT INTO ingestion_state (
+    source,
+    initial_block,
+    last_processed_block,
+    last_processed_block_hash
+)
+VALUES (
+    'rhc_rpc',
+    71634045,
+    71634044,
+    '915e4012535b400d42e47ee7ae7e641f2bf09c69cbe4c7ecd632acd81149e6ac'
+)
+ON CONFLICT (source)
+DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- RPC normalized market feed
@@ -402,6 +423,4 @@ WHERE
     last_processed_block IS NOT NULL
     AND last_processed_block_hash IS NOT NULL
 ON CONFLICT (source, block_number)
-DO UPDATE SET
-    block_hash = EXCLUDED.block_hash,
-    recorded_at = NOW();
+DO NOTHING;

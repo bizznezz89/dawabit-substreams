@@ -18,6 +18,27 @@ const GRADUATION_ROUTER =
 const SOURCE =
   "rhc_rpc";
 
+/*
+ * Permanent Substreams -> RPC ownership boundary.
+ *
+ * Substreams owns:
+ *   <= 71,634,044
+ *
+ * JSON-RPC owns:
+ *   >= 71,634,045
+ *
+ * This anchor must never be pruned from checkpoint history.
+ */
+const HANDOFF_BLOCK =
+  71634044n;
+
+const HANDOFF_HASH =
+  "915e4012535b400d42e47ee7ae7e641f2bf09c69cbe4c7ecd632acd81149e6ac";
+
+const RPC_INITIAL_BLOCK =
+  HANDOFF_BLOCK +
+  1n;
+
 const CONFIRMATIONS =
   BigInt(
     process.env.RHC_RPC_CONFIRMATIONS ??
@@ -1671,6 +1692,114 @@ async function getCanonicalBlockHash(
 }
 
 
+async function ensureHandoffAnchor(
+  initialBlock,
+) {
+  if (
+    initialBlock !==
+    RPC_INITIAL_BLOCK
+  ) {
+    throw new Error(
+      [
+        "RPC initial block does not match the permanent handoff boundary.",
+        `databaseInitialBlock=${initialBlock}`,
+        `expectedInitialBlock=${RPC_INITIAL_BLOCK}`,
+      ].join(
+        " ",
+      ),
+    );
+  }
+
+  const stored =
+    await db.query(
+      `
+        SELECT
+          block_hash
+
+        FROM ingestion_checkpoints
+
+        WHERE
+          source = $1
+          AND block_number = $2
+      `,
+      [
+        SOURCE,
+        HANDOFF_BLOCK.toString(),
+      ],
+    );
+
+  if (
+    stored.rowCount
+  ) {
+    const storedHash =
+      lower(
+        stored.rows[0]
+          .block_hash,
+      );
+
+    if (
+      storedHash !==
+      HANDOFF_HASH
+    ) {
+      throw new Error(
+        [
+          "Stored RPC handoff anchor does not match the fixed Substreams boundary.",
+          `block=${HANDOFF_BLOCK}`,
+          `database=${storedHash}`,
+          `expected=${HANDOFF_HASH}`,
+          "Manual recovery is required.",
+        ].join(
+          " ",
+        ),
+      );
+    }
+
+    return;
+  }
+
+  await db.query(
+    `
+      INSERT INTO ingestion_checkpoints (
+        source,
+        block_number,
+        block_hash,
+        recorded_at
+      )
+
+      VALUES (
+        $1,
+        $2,
+        $3,
+        NOW()
+      )
+
+      ON CONFLICT (
+        source,
+        block_number
+      )
+
+      DO NOTHING
+    `,
+    [
+      SOURCE,
+      HANDOFF_BLOCK.toString(),
+      HANDOFF_HASH,
+    ],
+  );
+
+  console.log({
+    handoffAnchor:
+      HANDOFF_BLOCK.toString(),
+
+    blockHash:
+      HANDOFF_HASH,
+
+    action:
+      "persisted_permanent_anchor",
+  });
+}
+
+
 async function rememberCheckpoint(
   sql,
   blockNumber,
@@ -1712,14 +1841,23 @@ async function rememberCheckpoint(
       WITH stale AS (
         SELECT
           block_number
+
         FROM ingestion_checkpoints
-        WHERE source = $1
+
+        WHERE
+          source = $1
+          AND block_number <> $2
+
         ORDER BY
           block_number DESC
-        OFFSET $2
+
+        OFFSET $3
       )
+
       DELETE FROM ingestion_checkpoints AS checkpoint
+
       USING stale
+
       WHERE
         checkpoint.source = $1
         AND checkpoint.block_number =
@@ -1727,7 +1865,8 @@ async function rememberCheckpoint(
     `,
     [
       SOURCE,
-      CHECKPOINT_HISTORY_LIMIT,
+      HANDOFF_BLOCK.toString(),
+      CHECKPOINT_HISTORY_LIMIT - 1,
     ],
   );
 }
@@ -1908,9 +2047,7 @@ async function verifyOrRecoverCheckpoint({
   });
 
   const floorBlock =
-    initialBlock > 0n
-      ? initialBlock - 1n
-      : 0n;
+    initialBlock;
 
   const history =
     await db.query(
@@ -1982,16 +2119,67 @@ async function verifyOrRecoverCheckpoint({
     };
   }
 
-  throw new Error(
-    [
-      "RPC reorg detected but no common stored checkpoint was found.",
-      `lastProcessed=${lastProcessedBlock}`,
-      `historyFloor=${floorBlock}`,
-      "Manual recovery is required.",
-    ].join(
-      " ",
-    ),
-  );
+  /*
+   * No retained RPC-owned checkpoint survived.
+   *
+   * Verify the immutable Substreams handoff block directly. If it is still
+   * canonical, every RPC-owned row can be discarded and replayed from
+   * HANDOFF_BLOCK + 1.
+   *
+   * If this block differs, the reorg crossed the ownership boundary and this
+   * worker must fail closed rather than mutate Substreams-owned history.
+   */
+  const handoffChainHash =
+    await getCanonicalBlockHash(
+      HANDOFF_BLOCK,
+    );
+
+  if (
+    handoffChainHash !==
+    HANDOFF_HASH
+  ) {
+    throw new Error(
+      [
+        "RPC reorg crossed the Substreams handoff boundary.",
+        `handoffBlock=${HANDOFF_BLOCK}`,
+        `expected=${HANDOFF_HASH}`,
+        `chain=${handoffChainHash}`,
+        "Refusing automatic recovery.",
+      ].join(
+        " ",
+      ),
+    );
+  }
+
+  console.warn({
+    commonCheckpoint:
+      HANDOFF_BLOCK.toString(),
+
+    blockHash:
+      handoffChainHash,
+
+    action:
+      "rollback_to_handoff_and_replay",
+  });
+
+  await rollbackRpcToCheckpoint({
+    blockNumber:
+      HANDOFF_BLOCK,
+
+    blockHash:
+      handoffChainHash,
+  });
+
+  return {
+    blockNumber:
+      HANDOFF_BLOCK,
+
+    blockHash:
+      handoffChainHash,
+
+    recovered:
+      true,
+  };
 }
 
 
@@ -2025,6 +2213,10 @@ async function main() {
     BigInt(
       state.initial_block,
     );
+
+  await ensureHandoffAnchor(
+    initialBlock,
+  );
 
   let lastProcessedBlock =
     BigInt(
