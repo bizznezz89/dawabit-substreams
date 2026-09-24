@@ -109,6 +109,8 @@ pub struct CurveActivity {
     pub transaction_hash: ::prost::alloc::vec::Vec<u8>,
     #[prost(uint64, tag="25")]
     pub ordinal: u64,
+    #[prost(string, tag="26")]
+    pub event_id: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -213,6 +215,8 @@ pub struct AmmActivity {
     pub token_reserve: ::prost::alloc::string::String,
     #[prost(string, tag="29")]
     pub quote_reserve: ::prost::alloc::string::String,
+    #[prost(string, tag="30")]
+    pub event_id: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -249,6 +253,8 @@ pub struct MarketActivity {
     pub curve_activity: ::core::option::Option<CurveActivity>,
     #[prost(message, optional, tag="13")]
     pub amm_activity: ::core::option::Option<AmmActivity>,
+    #[prost(string, tag="14")]
+    pub event_id: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

@@ -80,6 +80,7 @@ message CurveActivity {
     uint64 block_number = 23;
     bytes transaction_hash = 24;
     uint64 ordinal = 25;
+    string event_id = 26;
 }
 
 message CurveActivities {
@@ -150,6 +151,7 @@ message AmmActivity {
 
     string token_reserve = 28;
     string quote_reserve = 29;
+    string event_id = 30;
 }
 
 message AmmActivities {
@@ -173,6 +175,7 @@ message MarketActivity {
 
     CurveActivity curve_activity = 12;
     AmmActivity amm_activity = 13;
+    string event_id = 14;
 }
 
 message MarketActivities {

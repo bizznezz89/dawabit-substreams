@@ -158,6 +158,16 @@ fn store_curves(
 }
 
 
+fn make_event_id(
+    transaction_hash: &[u8],
+    ordinal: u64,
+) -> String {
+    use substreams::Hex;
+
+    format!("{}:{ordinal}", Hex(transaction_hash))
+}
+
+
 fn base_curve_activity(
     curve: &contract::DiscoveredCurve,
     curve_address: &[u8],
@@ -173,6 +183,7 @@ fn base_curve_activity(
         block_number,
         transaction_hash: transaction_hash.to_vec(),
         ordinal,
+        event_id: make_event_id(transaction_hash, ordinal),
         ..Default::default()
     }
 }
@@ -455,6 +466,7 @@ fn base_amm_activity(
         block_number,
         transaction_hash: transaction_hash.to_vec(),
         ordinal,
+        event_id: make_event_id(transaction_hash, ordinal),
         ..Default::default()
     }
 }
@@ -649,6 +661,7 @@ fn map_market_activity(
             block_number: activity.block_number,
             transaction_hash: activity.transaction_hash.clone(),
             ordinal: activity.ordinal,
+            event_id: activity.event_id.clone(),
             curve_activity: Some(activity),
             amm_activity: None,
         });
@@ -667,6 +680,7 @@ fn map_market_activity(
             block_number: activity.block_number,
             transaction_hash: activity.transaction_hash.clone(),
             ordinal: activity.ordinal,
+            event_id: activity.event_id.clone(),
             curve_activity: None,
             amm_activity: Some(activity),
         });
