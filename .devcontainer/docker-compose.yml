@@ -77,6 +77,37 @@ services:
       retries: 15
 
 
+  substreams-sink:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    depends_on:
+      main:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+
+    environment:
+      SUBSTREAMS_WORKDIR: /workspace/dawabit_substreams
+      SUBSTREAMS_ENV_FILE: /workspace/dawabit_substreams/.substreams.env
+      SUBSTREAMS_MANIFEST: substreams.yaml
+      SUBSTREAMS_MODULE: map_market_activity
+      SUBSTREAMS_ENDPOINT: mainnet.robinhood.streamingfast.io:443
+      SUBSTREAMS_START_BLOCK: "66552064"
+      SUBSTREAMS_SINK_DSN: postgres://graph-node:let-me-in@localhost:5432/dawabit?sslmode=disable
+
+    entrypoint:
+      - /workspace/.devcontainer/run-substreams-sink.sh
+
+    network_mode: service:main
+
+    volumes:
+      - ..:/workspace:cached
+
+    restart: unless-stopped
+
+
   api:
     build:
       context: ../api
