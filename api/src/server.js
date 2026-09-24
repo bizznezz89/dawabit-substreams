@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import { db, checkDatabase } from "./db.js";
 import { registerTrendingRoute } from "./trending.js";
 import { registerMarketRoutes } from "./markets.js";
+import { registerQuoteRoute } from "./quote.js";
 
 const app = Fastify({
   logger: true,
@@ -14,6 +15,7 @@ await app.register(cors, {
 
 registerTrendingRoute(app);
 registerMarketRoutes(app);
+registerQuoteRoute(app);
 
 app.get("/health", async () => {
   const database = await checkDatabase();

@@ -2,7 +2,7 @@ import { db } from "./db.js";
 import { hydrateTransactionActors } from "./transactions.js";
 import { loadMarketPriceMomentum } from "./trending-price.js";
 import { loadMarketLiquidity } from "./market-liquidity.js";
-import { loadMarketExecution } from "./market-execution.js";
+import { loadCachedMarketExecution } from "./execution-cache.js";
 
 const WINDOWS = {
   "5m": 300,
@@ -2230,7 +2230,7 @@ export function registerTrendingRoute(
        */
 
       const executionByMarket =
-        await loadMarketExecution(
+        await loadCachedMarketExecution(
           rankedMarkets,
         );
 

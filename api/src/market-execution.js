@@ -893,7 +893,7 @@ function maxExecutableCurveSell(
   return low;
 }
 
-async function quoteExactInput(
+export async function quoteExactInput(
   tokenIn,
   tokenOut,
   amountIn,
@@ -941,7 +941,7 @@ async function quoteExactInput(
   };
 }
 
-async function quoteExactOutput(
+export async function quoteExactOutput(
   tokenIn,
   tokenOut,
   amountOut,
