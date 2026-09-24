@@ -394,7 +394,20 @@ app.get(
       await db.query(
         `
           SELECT
-            *
+            _block_number_,
+            _block_timestamp_,
+            market_stage,
+            event_type,
+            canonical_trade,
+            market,
+            curve,
+            pair,
+            token,
+            quote_token,
+            block_number,
+            transaction_hash,
+            ordinal,
+            event_id
 
           FROM api_marketactivity
 
@@ -433,7 +446,34 @@ app.get(
         await db.query(
           `
             SELECT
-              *
+              _block_number_,
+              _block_timestamp_,
+              event_type,
+              canonical_trade,
+              curve,
+              token,
+              quote_token,
+              token_decimals,
+              actor,
+              token_amount,
+              curve_quote,
+              protocol_fee,
+              gross_quote_in,
+              net_quote_out,
+              tokens_sold_after,
+              quote_reserve_after,
+              gross_quote_limit,
+              actual_quote_in,
+              refund_quote,
+              allocation,
+              previous_state,
+              new_state,
+              graduation_router,
+              graduation_quote_amount,
+              block_number,
+              transaction_hash,
+              ordinal,
+              event_id
 
             FROM api_curveactivity
 
@@ -456,7 +496,38 @@ app.get(
         await db.query(
           `
             SELECT
-              *
+              _block_number_,
+              _block_timestamp_,
+              event_type,
+              pair,
+              curve,
+              token,
+              quote_token,
+              sender,
+              "to",
+              amount0,
+              amount1,
+              amount0_in,
+              amount1_in,
+              amount0_out,
+              amount1_out,
+              reserve0,
+              reserve1,
+              block_number,
+              transaction_hash,
+              ordinal,
+              token0,
+              token1,
+              token_is_token0,
+              token_amount,
+              quote_amount,
+              token_amount_in,
+              quote_amount_in,
+              token_amount_out,
+              quote_amount_out,
+              token_reserve,
+              quote_reserve,
+              event_id
 
             FROM api_ammactivity
 

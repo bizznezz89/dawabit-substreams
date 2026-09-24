@@ -19,12 +19,28 @@ const client =
       ),
   });
 
+function normalizeTransactionHash(
+  value,
+) {
+  const hash =
+    String(
+      value,
+    ).toLowerCase();
+
+  return hash.startsWith(
+    "0x",
+  )
+    ? hash
+    : `0x${hash}`;
+}
+
 export async function resolveTransactionActor(
   transactionHash,
 ) {
   const hash =
-    transactionHash
-      .toLowerCase();
+    normalizeTransactionHash(
+      transactionHash,
+    );
 
   const cached =
     await db.query(
@@ -102,9 +118,7 @@ export async function hydrateTransactionActors(
           Boolean,
         )
         .map(
-          (hash) =>
-            hash
-              .toLowerCase(),
+          normalizeTransactionHash,
         ),
     ),
   ];

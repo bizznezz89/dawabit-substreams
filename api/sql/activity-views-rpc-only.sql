@@ -25,7 +25,13 @@ SELECT
     r.quote_token,
 
     r.block_number,
-    r.transaction_hash,
+    CASE
+        WHEN LOWER(r.transaction_hash) LIKE '0x%'
+            THEN LOWER(r.transaction_hash)
+        ELSE
+            '0x' || LOWER(r.transaction_hash)
+    END
+        AS transaction_hash,
 
     NULL::NUMERIC
         AS ordinal,
@@ -84,7 +90,13 @@ SELECT
     r.graduation_quote_amount,
 
     r.block_number,
-    r.transaction_hash,
+    CASE
+        WHEN LOWER(r.transaction_hash) LIKE '0x%'
+            THEN LOWER(r.transaction_hash)
+        ELSE
+            '0x' || LOWER(r.transaction_hash)
+    END
+        AS transaction_hash,
 
     NULL::NUMERIC
         AS ordinal,
@@ -134,7 +146,13 @@ SELECT
     r.reserve1,
 
     r.block_number,
-    r.transaction_hash,
+    CASE
+        WHEN LOWER(r.transaction_hash) LIKE '0x%'
+            THEN LOWER(r.transaction_hash)
+        ELSE
+            '0x' || LOWER(r.transaction_hash)
+    END
+        AS transaction_hash,
 
     NULL::NUMERIC
         AS ordinal,
