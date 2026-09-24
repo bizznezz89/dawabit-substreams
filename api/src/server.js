@@ -345,7 +345,7 @@ app.get(
         _block_timestamp_
           AS block_timestamp
 
-      FROM marketactivity
+      FROM api_marketactivity
 
       ${
         where.length
@@ -357,7 +357,7 @@ app.get(
 
       ORDER BY
         block_number DESC,
-        ordinal DESC
+        event_order DESC
 
       LIMIT $${values.length}
     `;
@@ -396,7 +396,7 @@ app.get(
           SELECT
             *
 
-          FROM marketactivity
+          FROM api_marketactivity
 
           WHERE
             event_id = $1
@@ -435,7 +435,7 @@ app.get(
             SELECT
               *
 
-            FROM curveactivity
+            FROM api_curveactivity
 
             WHERE
               event_id = $1
@@ -458,7 +458,7 @@ app.get(
             SELECT
               *
 
-            FROM ammactivity
+            FROM api_ammactivity
 
             WHERE
               event_id = $1

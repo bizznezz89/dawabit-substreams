@@ -1,6 +1,14 @@
 #!/bin/sh
 set -eu
 
+# DaWabit quota safety gate.
+# Substreams ingestion must be explicitly enabled.
+if [ "${SUBSTREAMS_SINK_ENABLED:-false}" != "true" ]; then
+    echo "[substreams-sink] disabled (set SUBSTREAMS_SINK_ENABLED=true to run)"
+    exit 0
+fi
+
+
 WORKDIR="${SUBSTREAMS_WORKDIR:-/workspace/dawabit_substreams}"
 ENV_FILE="${SUBSTREAMS_ENV_FILE:-$WORKDIR/.substreams.env}"
 

@@ -570,7 +570,7 @@ async function loadTrendingMarketContext(
             c.tokens_sold_after,
             c.quote_reserve_after
 
-          FROM curveactivity c
+          FROM api_curveactivity c
 
           WHERE
             LOWER(c.curve) =
@@ -592,7 +592,7 @@ async function loadTrendingMarketContext(
 
           ORDER BY
             c.block_number DESC,
-            c.ordinal DESC
+            c.event_order DESC
 
           LIMIT 1
         ) latest
@@ -849,7 +849,7 @@ export function registerTrendingRoute(
             SELECT DISTINCT
               transaction_hash
 
-            FROM marketactivity
+            FROM api_marketactivity
 
             WHERE
               canonical_trade
@@ -914,7 +914,7 @@ export function registerTrendingRoute(
             m.event_type,
             m.transaction_hash,
             m.block_number,
-            m.ordinal,
+            m.event_order,
 
             m._block_timestamp_
               AS block_timestamp,
@@ -1064,17 +1064,17 @@ export function registerTrendingRoute(
             END
               AS quote_amount
 
-          FROM marketactivity m
+          FROM api_marketactivity m
 
           LEFT JOIN
-            curveactivity c
+            api_curveactivity c
 
             ON
               c.event_id =
               m.event_id
 
           LEFT JOIN
-            ammactivity a
+            api_ammactivity a
 
             ON
               a.event_id =
@@ -1268,7 +1268,7 @@ export function registerTrendingRoute(
             token,
             quote_token,
             block_timestamp DESC,
-            ordinal DESC
+            event_order DESC
         ),
 
         scored AS (

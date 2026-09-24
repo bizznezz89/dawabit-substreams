@@ -1092,7 +1092,7 @@ async function loadExecutionStates(
               c.quote_reserve_after,
               c._block_timestamp_
 
-            FROM curveactivity c
+            FROM api_curveactivity c
 
             WHERE
               LOWER(c.curve) =
@@ -1114,7 +1114,7 @@ async function loadExecutionStates(
 
             ORDER BY
               c.block_number DESC,
-              c.ordinal DESC
+              c.event_order DESC
 
             LIMIT 1
           ) latest
@@ -1224,7 +1224,7 @@ async function loadExecutionStates(
             _block_timestamp_
               AS state_updated_at
 
-          FROM ammactivity
+          FROM api_ammactivity
 
           WHERE
             LOWER(pair) =
@@ -1249,7 +1249,7 @@ async function loadExecutionStates(
           ORDER BY
             LOWER(pair),
             block_number DESC,
-            ordinal DESC
+            event_order DESC
         `,
         [
           pairAddresses,

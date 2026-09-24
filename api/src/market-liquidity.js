@@ -189,7 +189,7 @@ export async function loadMarketLiquidity(
             c.quote_reserve_after,
             c._block_timestamp_
 
-          FROM curveactivity c
+          FROM api_curveactivity c
 
           WHERE
             LOWER(c.curve) =
@@ -211,7 +211,7 @@ export async function loadMarketLiquidity(
 
           ORDER BY
             c.block_number DESC,
-            c.ordinal DESC
+            c.event_order DESC
 
           LIMIT 1
         ) latest
@@ -330,7 +330,7 @@ export async function loadMarketLiquidity(
             _block_timestamp_
               AS reserve_state_at
 
-          FROM ammactivity
+          FROM api_ammactivity
 
           WHERE
             LOWER(pair) =
@@ -355,7 +355,7 @@ export async function loadMarketLiquidity(
           ORDER BY
             LOWER(pair),
             block_number DESC,
-            ordinal DESC
+            event_order DESC
         `,
         [
           pairAddresses,

@@ -89,6 +89,7 @@ services:
         condition: service_healthy
 
     environment:
+      SUBSTREAMS_SINK_ENABLED: "false"
       SUBSTREAMS_WORKDIR: /workspace/dawabit_substreams
       SUBSTREAMS_ENV_FILE: /workspace/dawabit_substreams/.substreams.env
       SUBSTREAMS_MANIFEST: substreams.yaml
@@ -105,7 +106,7 @@ services:
     volumes:
       - ..:/workspace:cached
 
-    restart: unless-stopped
+    restart: "no"
 
 
   api:
@@ -132,6 +133,36 @@ services:
       RATE_LIMIT_WINDOW_MS: "60000"
       RATE_LIMIT_GLOBAL_MAX: "120"
       RATE_LIMIT_QUOTE_MAX: "30"
+
+    network_mode: service:main
+
+    restart: unless-stopped
+
+  rhc-rpc-indexer:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+
+    depends_on:
+      main:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+
+    environment:
+      NODE_ENV: production
+
+      DATABASE_URL: postgres://graph-node:let-me-in@localhost:5432/dawabit?sslmode=disable
+      RHC_RPC_URL: https://rpc.mainnet.chain.robinhood.com
+      RELAUNCH_TRADE_ROUTER: 0x48AcF9c62384A6C15cCA80F6307cc29a5be2580B
+
+      RHC_RPC_CONFIRMATIONS: "64"
+      RHC_RPC_CHUNK_SIZE: "1000"
+      RHC_RPC_POLL_INTERVAL_SECONDS: "15"
+
+    entrypoint:
+      - sh
+      - /app/scripts/run-rhc-rpc-indexer.sh
 
     network_mode: service:main
 

@@ -66,4 +66,301 @@ CREATE INDEX IF NOT EXISTS token_metadata_lower_address_idx
         LOWER(address)
     );
 
+-- ---------------------------------------------------------------------------
+-- RPC ingestion checkpoint
+--
+-- The initial handoff block is deployment state and is NOT hard-coded here.
+-- Fresh installations must explicitly initialize their ingestion source.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS ingestion_state (
+    source TEXT PRIMARY KEY,
+    initial_block BIGINT NOT NULL,
+    last_processed_block BIGINT NOT NULL,
+    last_processed_block_hash TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ingestion_state_updated_at_idx
+    ON ingestion_state (updated_at);
+
+-- ---------------------------------------------------------------------------
+-- RPC normalized market feed
+--
+-- Substreams continues to own marketactivity / curveactivity / ammactivity.
+-- These tables contain the live JSON-RPC continuation.
+--
+-- RPC event identity:
+--     transaction_hash:log_index
+--
+-- `ordinal` is intentionally absent. Firehose/Substreams ordinal and Ethereum
+-- logIndex are different concepts.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS rpc_marketactivity (
+    _block_number_ BIGINT NOT NULL,
+    _block_timestamp_ TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+
+    market_stage VARCHAR(255),
+    event_type VARCHAR(255),
+    canonical_trade BOOLEAN,
+
+    market TEXT,
+    curve TEXT,
+    pair TEXT,
+    token TEXT,
+    quote_token TEXT,
+
+    block_number BIGINT NOT NULL,
+    block_hash TEXT NOT NULL,
+
+    transaction_hash TEXT NOT NULL,
+    transaction_index BIGINT,
+    log_index BIGINT NOT NULL,
+
+    event_id TEXT PRIMARY KEY
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS rpc_marketactivity_tx_log_idx
+    ON rpc_marketactivity (
+        transaction_hash,
+        log_index
+    );
+
+CREATE INDEX IF NOT EXISTS rpc_marketactivity_block_idx
+    ON rpc_marketactivity (block_number);
+
+CREATE INDEX IF NOT EXISTS rpc_marketactivity_market_block_idx
+    ON rpc_marketactivity (
+        market,
+        block_number DESC
+    );
+
+CREATE INDEX IF NOT EXISTS rpc_marketactivity_token_block_idx
+    ON rpc_marketactivity (
+        token,
+        block_number DESC
+    );
+
+CREATE INDEX IF NOT EXISTS rpc_marketactivity_tx_hash_idx
+    ON rpc_marketactivity (transaction_hash);
+
+CREATE INDEX IF NOT EXISTS rpc_marketactivity_stage_event_block_idx
+    ON rpc_marketactivity (
+        market_stage,
+        event_type,
+        block_number DESC
+    );
+
+CREATE INDEX IF NOT EXISTS rpc_marketactivity_canonical_trade_idx
+    ON rpc_marketactivity (
+        market,
+        block_number DESC
+    )
+    WHERE canonical_trade IS TRUE;
+
+-- ---------------------------------------------------------------------------
+-- RPC bonding-curve detail feed
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS rpc_curveactivity (
+    _block_number_ BIGINT NOT NULL,
+    _block_timestamp_ TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+
+    event_type VARCHAR(255),
+    canonical_trade BOOLEAN,
+
+    curve TEXT,
+    token TEXT,
+    quote_token TEXT,
+
+    token_decimals NUMERIC,
+    actor TEXT,
+
+    token_amount VARCHAR(255),
+    curve_quote VARCHAR(255),
+    protocol_fee VARCHAR(255),
+    gross_quote_in VARCHAR(255),
+    net_quote_out VARCHAR(255),
+    tokens_sold_after VARCHAR(255),
+    quote_reserve_after VARCHAR(255),
+
+    gross_quote_limit VARCHAR(255),
+    actual_quote_in VARCHAR(255),
+    refund_quote VARCHAR(255),
+
+    allocation VARCHAR(255),
+
+    previous_state NUMERIC,
+    new_state NUMERIC,
+
+    graduation_router TEXT,
+    graduation_quote_amount VARCHAR(255),
+
+    block_number BIGINT NOT NULL,
+    block_hash TEXT NOT NULL,
+
+    transaction_hash TEXT NOT NULL,
+    transaction_index BIGINT,
+    log_index BIGINT NOT NULL,
+
+    event_id TEXT PRIMARY KEY
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS rpc_curveactivity_tx_log_idx
+    ON rpc_curveactivity (
+        transaction_hash,
+        log_index
+    );
+
+CREATE INDEX IF NOT EXISTS rpc_curveactivity_block_idx
+    ON rpc_curveactivity (block_number);
+
+CREATE INDEX IF NOT EXISTS rpc_curveactivity_curve_block_idx
+    ON rpc_curveactivity (
+        curve,
+        block_number DESC
+    );
+
+CREATE INDEX IF NOT EXISTS rpc_curveactivity_actor_block_idx
+    ON rpc_curveactivity (
+        actor,
+        block_number DESC
+    );
+
+CREATE INDEX IF NOT EXISTS rpc_curveactivity_tx_hash_idx
+    ON rpc_curveactivity (transaction_hash);
+
+-- ---------------------------------------------------------------------------
+-- RPC AMM detail feed
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS rpc_ammactivity (
+    _block_number_ BIGINT NOT NULL,
+    _block_timestamp_ TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+
+    event_type VARCHAR(255),
+
+    pair TEXT,
+    curve TEXT,
+    token TEXT,
+    quote_token TEXT,
+
+    sender TEXT,
+    "to" TEXT,
+
+    amount0 VARCHAR(255),
+    amount1 VARCHAR(255),
+
+    amount0_in VARCHAR(255),
+    amount1_in VARCHAR(255),
+    amount0_out VARCHAR(255),
+    amount1_out VARCHAR(255),
+
+    reserve0 VARCHAR(255),
+    reserve1 VARCHAR(255),
+
+    block_number BIGINT NOT NULL,
+    block_hash TEXT NOT NULL,
+
+    transaction_hash TEXT NOT NULL,
+    transaction_index BIGINT,
+    log_index BIGINT NOT NULL,
+
+    token0 TEXT,
+    token1 TEXT,
+    token_is_token0 BOOLEAN,
+
+    token_amount VARCHAR(255),
+    quote_amount VARCHAR(255),
+
+    token_amount_in VARCHAR(255),
+    quote_amount_in VARCHAR(255),
+
+    token_amount_out VARCHAR(255),
+    quote_amount_out VARCHAR(255),
+
+    token_reserve VARCHAR(255),
+    quote_reserve VARCHAR(255),
+
+    event_id TEXT PRIMARY KEY
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS rpc_ammactivity_tx_log_idx
+    ON rpc_ammactivity (
+        transaction_hash,
+        log_index
+    );
+
+CREATE INDEX IF NOT EXISTS rpc_ammactivity_block_idx
+    ON rpc_ammactivity (block_number);
+
+CREATE INDEX IF NOT EXISTS rpc_ammactivity_pair_block_idx
+    ON rpc_ammactivity (
+        pair,
+        block_number DESC
+    );
+
+CREATE INDEX IF NOT EXISTS rpc_ammactivity_tx_hash_idx
+    ON rpc_ammactivity (transaction_hash);
+
 COMMIT;
+
+-- ---------------------------------------------------------------------------
+-- RPC discovery compatibility
+-- ---------------------------------------------------------------------------
+
+BEGIN;
+
+-- Firehose ordinal has no JSON-RPC equivalent.
+ALTER TABLE market_config
+    ALTER COLUMN ordinal DROP NOT NULL;
+
+ALTER TABLE market_config
+    ADD COLUMN IF NOT EXISTS log_index BIGINT;
+
+ALTER TABLE market_config
+    ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'substreams';
+
+CREATE INDEX IF NOT EXISTS market_config_source_idx
+    ON market_config (source);
+
+-- Persistent post-graduation AMM discovery registry.
+CREATE TABLE IF NOT EXISTS amm_pool_config (
+    pair TEXT PRIMARY KEY,
+    curve TEXT NOT NULL UNIQUE,
+
+    token TEXT NOT NULL,
+    quote_token TEXT NOT NULL,
+
+    token0 TEXT NOT NULL,
+    token1 TEXT NOT NULL,
+    token_is_token0 BOOLEAN NOT NULL,
+
+    token_amount NUMERIC NOT NULL,
+    quote_amount NUMERIC NOT NULL,
+    liquidity NUMERIC NOT NULL,
+
+    discovery_block BIGINT NOT NULL,
+    discovery_block_hash TEXT NOT NULL,
+
+    transaction_hash TEXT NOT NULL,
+    transaction_index BIGINT,
+    log_index BIGINT NOT NULL,
+
+    source TEXT NOT NULL DEFAULT 'rpc',
+
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS amm_pool_config_curve_idx
+    ON amm_pool_config (curve);
+
+CREATE INDEX IF NOT EXISTS amm_pool_config_token_quote_idx
+    ON amm_pool_config (
+        LOWER(token),
+        LOWER(quote_token)
+    );
+
+COMMIT;
+

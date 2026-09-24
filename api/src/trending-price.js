@@ -399,7 +399,7 @@ export async function loadMarketPriceMomentum(
             _block_timestamp_
               AS activated_at
 
-          FROM curveactivity
+          FROM api_curveactivity
 
           WHERE
             LOWER(curve) =
@@ -412,7 +412,7 @@ export async function loadMarketPriceMomentum(
           ORDER BY
             LOWER(curve),
             block_number ASC,
-            ordinal ASC
+            event_order ASC
         `,
         [
           curveAddresses,
@@ -456,7 +456,7 @@ export async function loadMarketPriceMomentum(
 
             tokens_sold_after
 
-          FROM curveactivity
+          FROM api_curveactivity
 
           WHERE
             LOWER(curve) =
@@ -479,7 +479,7 @@ export async function loadMarketPriceMomentum(
           ORDER BY
             LOWER(curve),
             block_number DESC,
-            ordinal DESC
+            event_order DESC
         `,
         [
           curveAddresses,
@@ -523,7 +523,7 @@ export async function loadMarketPriceMomentum(
 
             tokens_sold_after
 
-          FROM curveactivity
+          FROM api_curveactivity
 
           WHERE
             LOWER(curve) =
@@ -554,7 +554,7 @@ export async function loadMarketPriceMomentum(
           ORDER BY
             LOWER(curve),
             block_number DESC,
-            ordinal DESC
+            event_order DESC
         `,
         [
           curveAddresses,
@@ -637,7 +637,7 @@ export async function loadMarketPriceMomentum(
               _block_timestamp_
                 AS reserve_at
 
-            FROM ammactivity
+            FROM api_ammactivity
 
             WHERE
               LOWER(pair) =
@@ -662,7 +662,7 @@ export async function loadMarketPriceMomentum(
             ORDER BY
               LOWER(pair),
               block_number DESC,
-              ordinal DESC
+              event_order DESC
           `,
           [
             pairAddresses,
@@ -693,7 +693,7 @@ export async function loadMarketPriceMomentum(
               _block_timestamp_
                 AS reserve_at
 
-            FROM ammactivity
+            FROM api_ammactivity
 
             WHERE
               LOWER(pair) =
@@ -726,7 +726,7 @@ export async function loadMarketPriceMomentum(
             ORDER BY
               LOWER(pair),
               block_number DESC,
-              ordinal DESC
+              event_order DESC
           `,
           [
             pairAddresses,

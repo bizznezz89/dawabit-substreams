@@ -203,7 +203,7 @@ async function getCurvePriceWindows({
           SELECT
             c.tokens_sold_after
 
-          FROM curveactivity c
+          FROM api_curveactivity c
 
           WHERE
             LOWER(c.curve) =
@@ -219,7 +219,7 @@ async function getCurvePriceWindows({
 
           ORDER BY
             c.block_number DESC,
-            c.ordinal DESC
+            c.event_order DESC
 
           LIMIT 1
         ) AS tokens_sold_at_start
@@ -308,7 +308,7 @@ export function registerMarketRoutes(app) {
             block_number,
             ordinal,
             _block_timestamp_ AS block_timestamp
-          FROM marketactivity
+          FROM api_marketactivity
           WHERE
             LOWER(market) = $1
             OR LOWER(curve) = $1
@@ -316,7 +316,7 @@ export function registerMarketRoutes(app) {
             OR LOWER(token) = $1
           ORDER BY
             block_number DESC,
-            ordinal DESC
+            event_order DESC
           LIMIT 1
         `,
         [address],
@@ -379,13 +379,13 @@ export function registerMarketRoutes(app) {
               transaction_hash,
               _block_timestamp_
                 AS activated_at
-            FROM curveactivity
+            FROM api_curveactivity
             WHERE
               LOWER(curve) = LOWER($1)
               AND event_type = 'ACTIVATED'
             ORDER BY
               block_number DESC,
-              ordinal DESC
+              event_order DESC
             LIMIT 1
           `,
           [curveAddress],
@@ -400,14 +400,14 @@ export function registerMarketRoutes(app) {
               transaction_hash,
               _block_timestamp_
                 AS changed_at
-            FROM curveactivity
+            FROM api_curveactivity
             WHERE
               LOWER(curve) = LOWER($1)
               AND event_type =
                 'CURVE_STATE_CHANGED'
             ORDER BY
               block_number DESC,
-              ordinal DESC
+              event_order DESC
             LIMIT 1
           `,
           [curveAddress],
@@ -433,7 +433,7 @@ export function registerMarketRoutes(app) {
               c.ordinal,
               c._block_timestamp_
                 AS block_timestamp
-            FROM curveactivity c
+            FROM api_curveactivity c
 
             LEFT JOIN transaction_actor ta
               ON ta.transaction_hash =
@@ -448,7 +448,7 @@ export function registerMarketRoutes(app) {
 
             ORDER BY
               c.block_number DESC,
-              c.ordinal DESC
+              c.event_order DESC
 
             LIMIT 1
           `,
@@ -525,7 +525,7 @@ export function registerMarketRoutes(app) {
                 c._block_timestamp_
               ) AS last_trade_at
 
-            FROM curveactivity c
+            FROM api_curveactivity c
 
             LEFT JOIN transaction_actor ta
               ON ta.transaction_hash =

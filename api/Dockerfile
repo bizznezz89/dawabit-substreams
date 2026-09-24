@@ -10,6 +10,7 @@ RUN npm ci --omit=dev --ignore-scripts \
     && npm cache clean --force
 
 COPY src ./src
+COPY scripts ./scripts
 COPY openapi.json ./openapi.json
 
 USER node
