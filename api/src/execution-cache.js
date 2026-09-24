@@ -2,6 +2,10 @@ import {
   loadMarketExecution,
 } from "./market-execution.js";
 
+import {
+  config,
+} from "./config.js";
+
 /*
  * Executable-depth quotes are deterministic for a
  * given market state, but the chain can move between
@@ -11,10 +15,7 @@ import {
  * without pretending the quotes are long-lived.
  */
 const CACHE_TTL_MS =
-  Number(
-    process.env.EXECUTION_CACHE_TTL_MS ??
-    10_000,
-  );
+  config.executionCacheTtlMs;
 
 const cache =
   new Map();

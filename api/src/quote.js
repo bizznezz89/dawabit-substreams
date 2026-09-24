@@ -7,6 +7,10 @@ import {
 import { db } from "./db.js";
 
 import {
+  config,
+} from "./config.js";
+
+import {
   quoteExactInput,
   quoteExactOutput,
 } from "./market-execution.js";
@@ -194,6 +198,22 @@ export function registerQuoteRoute(
 ) {
   app.get(
     "/v1/quote",
+
+    {
+      config: {
+        rateLimit: {
+          max:
+            config
+              .rateLimit
+              .quoteMax,
+
+          timeWindow:
+            config
+              .rateLimit
+              .windowMs,
+        },
+      },
+    },
 
     async (
       request,

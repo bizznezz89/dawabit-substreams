@@ -5,13 +5,15 @@ import {
 
 import { db } from "./db.js";
 
+import {
+  config,
+} from "./config.js";
+
 const RHC_RPC_URL =
-  process.env.RHC_RPC_URL ??
-  "https://rpc.mainnet.chain.robinhood.com";
+  config.rhcRpcUrl;
 
 const TRADE_ROUTER =
-  process.env.RELAUNCH_TRADE_ROUTER ??
-  "0x48AcF9c62384A6C15cCA80F6307cc29a5be2580B";
+  config.relaunchTradeRouter;
 
 const client =
   createPublicClient({

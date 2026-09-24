@@ -1,35 +1,64 @@
-import { createPublicClient, http } from "viem";
-import { db } from "./db.js";
+import {
+  createPublicClient,
+  http,
+} from "viem";
 
-const rpcUrl =
-  process.env.RH_RPC_URL ??
-  "https://rpc.mainnet.chain.robinhood.com";
+import {
+  config,
+} from "./config.js";
 
-const client = createPublicClient({
-  transport: http(rpcUrl),
-});
+import {
+  db,
+} from "./db.js";
 
-export async function resolveTransactionActor(transactionHash) {
-  const hash = transactionHash.toLowerCase();
-
-  const cached = await db.query(
-    `
-      SELECT trader
-      FROM transaction_actor
-      WHERE transaction_hash = $1
-    `,
-    [hash],
-  );
-
-  if (cached.rowCount) {
-    return cached.rows[0].trader;
-  }
-
-  const tx = await client.getTransaction({
-    hash,
+const client =
+  createPublicClient({
+    transport:
+      http(
+        config.rhcRpcUrl,
+      ),
   });
 
-  const trader = tx.from.toLowerCase();
+export async function resolveTransactionActor(
+  transactionHash,
+) {
+  const hash =
+    transactionHash
+      .toLowerCase();
+
+  const cached =
+    await db.query(
+      `
+        SELECT
+          trader
+
+        FROM transaction_actor
+
+        WHERE
+          transaction_hash = $1
+      `,
+      [
+        hash,
+      ],
+    );
+
+  if (
+    cached.rowCount
+  ) {
+    return (
+      cached.rows[0]
+        .trader
+    );
+  }
+
+  const tx =
+    await client.getTransaction({
+      hash,
+    });
+
+  const trader =
+    tx.from
+      .toLowerCase();
 
   await db.query(
     `
@@ -37,47 +66,92 @@ export async function resolveTransactionActor(transactionHash) {
         transaction_hash,
         trader
       )
-      VALUES ($1, $2)
-      ON CONFLICT (transaction_hash)
+
+      VALUES (
+        $1,
+        $2
+      )
+
+      ON CONFLICT (
+        transaction_hash
+      )
+
       DO UPDATE SET
-        trader = EXCLUDED.trader,
-        resolved_at = NOW()
+        trader =
+          EXCLUDED.trader,
+
+        resolved_at =
+          NOW()
     `,
-    [hash, trader],
+    [
+      hash,
+      trader,
+    ],
   );
 
   return trader;
 }
 
-export async function hydrateTransactionActors(transactionHashes) {
+export async function hydrateTransactionActors(
+  transactionHashes,
+) {
   const hashes = [
     ...new Set(
       transactionHashes
-        .filter(Boolean)
-        .map((hash) => hash.toLowerCase()),
+        .filter(
+          Boolean,
+        )
+        .map(
+          (hash) =>
+            hash
+              .toLowerCase(),
+        ),
     ),
   ];
 
-  if (!hashes.length) {
+  if (
+    !hashes.length
+  ) {
     return;
   }
 
-  const existing = await db.query(
-    `
-      SELECT transaction_hash
-      FROM transaction_actor
-      WHERE transaction_hash = ANY($1::text[])
-    `,
-    [hashes],
-  );
+  const existing =
+    await db.query(
+      `
+        SELECT
+          transaction_hash
 
-  const known = new Set(
-    existing.rows.map((row) => row.transaction_hash),
-  );
+        FROM transaction_actor
 
-  for (const hash of hashes) {
-    if (!known.has(hash)) {
-      await resolveTransactionActor(hash);
+        WHERE
+          transaction_hash =
+          ANY($1::text[])
+      `,
+      [
+        hashes,
+      ],
+    );
+
+  const known =
+    new Set(
+      existing.rows.map(
+        (row) =>
+          row.transaction_hash,
+      ),
+    );
+
+  for (
+    const hash of
+    hashes
+  ) {
+    if (
+      !known.has(
+        hash,
+      )
+    ) {
+      await resolveTransactionActor(
+        hash,
+      );
     }
   }
 }
