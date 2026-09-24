@@ -1,7 +1,7 @@
 specVersion: v0.1.0
 package:
   name: dawabit_substreams
-  version: v0.2.1
+  version: v0.2.2
   url: https://github.com/bizznezz89/dawabit-substreams
   description: Substreams module for DaWabit protocol discovery on Robinhood Chain Mainnet
   image: ./dawabit_logo_512x512.png
