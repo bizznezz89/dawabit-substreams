@@ -11,6 +11,7 @@ RUN npm ci --omit=dev --ignore-scripts \
 
 COPY src ./src
 COPY scripts ./scripts
+COPY sql ./sql
 COPY openapi.json ./openapi.json
 
 USER node
@@ -24,4 +25,4 @@ HEALTHCHECK \
   --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
 
-CMD ["node", "src/server.js"]
+CMD ["sh", "-c", "node scripts/ensure-activity-views.js && exec node src/server.js"]
