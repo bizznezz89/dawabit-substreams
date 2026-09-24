@@ -1,6 +1,8 @@
 import { db } from "./db.js";
 import { hydrateTransactionActors } from "./transactions.js";
 import { loadMarketPriceMomentum } from "./trending-price.js";
+import { loadMarketLiquidity } from "./market-liquidity.js";
+import { loadMarketExecution } from "./market-execution.js";
 
 const WINDOWS = {
   "5m": 300,
@@ -10,7 +12,8 @@ const WINDOWS = {
   "7d": 604800,
 };
 
-const NEW_MARKET_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const NEW_MARKET_MAX_AGE_SECONDS =
+  7 * 24 * 60 * 60;
 
 const TRENDING_MIN_SCORE = 50;
 const TRENDING_MIN_TRADES = 3;
@@ -22,6 +25,12 @@ const DISCOVERY_KEYWORDS =
     "trending",
   ]);
 
+const EXECUTION_DEPTH_KEYS = [
+  "1pct",
+  "5pct",
+  "10pct",
+];
+
 function numberOrNull(value) {
   if (
     value === null ||
@@ -30,7 +39,8 @@ function numberOrNull(value) {
     return null;
   }
 
-  const number = Number(value);
+  const number =
+    Number(value);
 
   return Number.isFinite(number)
     ? number
@@ -81,7 +91,9 @@ function formatUnits(
   }
 
   const base =
-    10n ** BigInt(places);
+    10n ** BigInt(
+      places,
+    );
 
   const whole =
     value / base;
@@ -144,6 +156,33 @@ function percentRaw(
     100,
     Number(scaled) /
       10_000,
+  );
+}
+
+function executionDepthComplete(
+  execution,
+) {
+  if (
+    execution?.available !==
+    true
+  ) {
+    return false;
+  }
+
+  return [
+    "buy",
+    "sell",
+  ].every(
+    (side) =>
+      EXECUTION_DEPTH_KEYS.every(
+        (key) =>
+          execution
+            ?.depth
+            ?.[side]
+            ?.[key]
+            ?.quote_verified ===
+          true,
+      ),
   );
 }
 
@@ -368,6 +407,12 @@ async function loadTrendingMarketContext(
     return output;
   }
 
+  /*
+   * ----------------------------------------------------------
+   * Token metadata
+   * ----------------------------------------------------------
+   */
+
   const addresses = [
     ...new Set(
       markets.flatMap(
@@ -432,6 +477,12 @@ async function loadTrendingMarketContext(
         ],
       ),
     );
+
+  /*
+   * ----------------------------------------------------------
+   * Curve configuration + latest state
+   * ----------------------------------------------------------
+   */
 
   const targetTokens =
     markets.map(
@@ -740,13 +791,6 @@ export function registerTrendingRoute(
           });
       }
 
-      /*
-       * Optional machine-readable
-       * discovery filter:
-       *
-       * ?keyword=new
-       * ?keyword=trending
-       */
       const keywordRaw =
         request.query.keyword ??
         null;
@@ -792,6 +836,12 @@ export function registerTrendingRoute(
 
           100,
         );
+
+      /*
+       * ------------------------------------------------------
+       * Transaction-origin hydration
+       * ------------------------------------------------------
+       */
 
       const transactions =
         await db.query(
@@ -846,6 +896,12 @@ export function registerTrendingRoute(
           "transaction actor hydration incomplete",
         );
       }
+
+      /*
+       * ------------------------------------------------------
+       * Trading statistics
+       * ------------------------------------------------------
+       */
 
       const sql = `
         WITH normalized AS (
@@ -1098,7 +1154,8 @@ export function registerTrendingRoute(
                   )
 
                 AND
-                  side = 'BUY'
+                  side =
+                  'BUY'
             )::integer
               AS buys,
 
@@ -1112,7 +1169,8 @@ export function registerTrendingRoute(
                   )
 
                 AND
-                  side = 'SELL'
+                  side =
+                  'SELL'
             )::integer
               AS sells,
 
@@ -1361,9 +1419,18 @@ export function registerTrendingRoute(
           ],
         );
 
+      /*
+       * Price/context/liquidity are required
+       * before ranking.
+       *
+       * Execution depth is deliberately loaded
+       * later, only for markets that survive
+       * filtering + limit.
+       */
       const [
         priceMomentum,
         marketContext,
+        marketLiquidity,
       ] =
         await Promise.all([
           loadMarketPriceMomentum(
@@ -1374,7 +1441,17 @@ export function registerTrendingRoute(
           loadTrendingMarketContext(
             result.rows,
           ),
+
+          loadMarketLiquidity(
+            result.rows,
+          ),
         ]);
+
+      /*
+       * ------------------------------------------------------
+       * Build ranking candidates
+       * ------------------------------------------------------
+       */
 
       const markets =
         result.rows.map(
@@ -1434,6 +1511,22 @@ export function registerTrendingRoute(
                 marketKey,
               ) ??
               null;
+
+            const liquidity =
+              marketLiquidity.get(
+                marketKey,
+              ) ??
+              {
+                stage:
+                  market.market_stage ??
+                  null,
+
+                available:
+                  false,
+
+                executable_depth_complete:
+                  false,
+              };
 
             const tokenInfo =
               context
@@ -1500,13 +1593,10 @@ export function registerTrendingRoute(
               });
 
             /*
-             * ------------------------------
-             * Discovery: NEW
-             * ------------------------------
+             * NEW is lifecycle age.
              *
-             * Fixed lifecycle classification.
-             * It does not change according to
-             * the requested trending window.
+             * It is independent from the requested
+             * momentum window.
              */
             const activatedAt =
               price
@@ -1538,15 +1628,7 @@ export function registerTrendingRoute(
                 NEW_MARKET_MAX_AGE_SECONDS;
 
             /*
-             * ------------------------------
-             * Discovery: TRENDING
-             * ------------------------------
-             *
-             * Window-relative classification.
-             *
-             * Score alone is insufficient.
-             * Require measurable trade and
-             * trader participation as well.
+             * TRENDING is window-relative.
              */
             const isTrending =
               score.total >=
@@ -1713,6 +1795,12 @@ export function registerTrendingRoute(
             return {
               ...market,
 
+              /*
+               * ----------------------------------------------
+               * Token identity
+               * ----------------------------------------------
+               */
+
               token_symbol:
                 tokenInfo
                   ?.symbol ??
@@ -1739,6 +1827,12 @@ export function registerTrendingRoute(
               quote_decimals:
                 quoteDecimals,
 
+              /*
+               * ----------------------------------------------
+               * Volume
+               * ----------------------------------------------
+               */
+
               quote_volume:
                 quoteVolume,
 
@@ -1750,6 +1844,12 @@ export function registerTrendingRoute(
                   ?.symbol ??
                 null,
 
+              /*
+               * ----------------------------------------------
+               * Velocity
+               * ----------------------------------------------
+               */
+
               activity_velocity:
                 activityVelocity,
 
@@ -1758,6 +1858,12 @@ export function registerTrendingRoute(
 
               trader_velocity:
                 traderVelocity,
+
+              /*
+               * ----------------------------------------------
+               * Price
+               * ----------------------------------------------
+               */
 
               price_change_pct:
                 priceChangePct,
@@ -1803,6 +1909,12 @@ export function registerTrendingRoute(
                 price
                   ?.available ===
                 true,
+
+              /*
+               * ----------------------------------------------
+               * Curve lifecycle
+               * ----------------------------------------------
+               */
 
               curve:
                 curveContext
@@ -1892,6 +2004,21 @@ export function registerTrendingRoute(
                   ?.economic_graduation_ready ??
                 null,
 
+              /*
+               * Static/indexed lifecycle liquidity.
+               *
+               * executable_depth_complete is updated
+               * after live TradeRouter verification.
+               */
+
+              liquidity,
+
+              /*
+               * ----------------------------------------------
+               * Momentum score
+               * ----------------------------------------------
+               */
+
               trend_score:
                 score.total,
 
@@ -1911,8 +2038,11 @@ export function registerTrendingRoute(
                   : 0,
 
               /*
-               * Explicit discovery fields.
+               * ----------------------------------------------
+               * Discovery
+               * ----------------------------------------------
                */
+
               new_market:
                 isNewMarket,
 
@@ -1948,8 +2078,7 @@ export function registerTrendingRoute(
               },
 
               /*
-               * Scoring concept, distinct
-               * from discovery keyword "new".
+               * Scoring concept only.
                */
               cold_start:
                 coldStart,
@@ -1999,6 +2128,23 @@ export function registerTrendingRoute(
                     ?.graduation_progress_pct ??
                   null,
 
+                liquidity_stage:
+                  liquidity
+                    ?.stage ??
+                  null,
+
+                liquidity_available:
+                  liquidity
+                    ?.available ===
+                  true,
+
+                /*
+                 * Updated after live execution
+                 * quotes are loaded.
+                 */
+                executable_depth_complete:
+                  false,
+
                 recency:
                   market
                     .last_trade_at,
@@ -2008,8 +2154,11 @@ export function registerTrendingRoute(
         );
 
       /*
-       * Optional discovery keyword filter.
+       * ------------------------------------------------------
+       * Discovery filtering + ranking
+       * ------------------------------------------------------
        */
+
       const filteredMarkets =
         keyword === null
           ? markets
@@ -2071,6 +2220,92 @@ export function registerTrendingRoute(
             }),
           );
 
+      /*
+       * ------------------------------------------------------
+       * Live executable depth
+       * ------------------------------------------------------
+       *
+       * This happens after ranking/limit so RPC work is only
+       * spent on markets that are actually returned.
+       */
+
+      const executionByMarket =
+        await loadMarketExecution(
+          rankedMarkets,
+        );
+
+      const enrichedMarkets =
+        rankedMarkets.map(
+          (market) => {
+            const key =
+              market.market
+                .toLowerCase();
+
+            const execution =
+              executionByMarket.get(
+                key,
+              ) ??
+              {
+                model:
+                  "trade_router_depth_v1",
+
+                available:
+                  false,
+
+                venue:
+                  market
+                    .market_stage ??
+                  null,
+              };
+
+            const executableDepthComplete =
+              executionDepthComplete(
+                execution,
+              );
+
+            const liquidity = {
+              ...market.liquidity,
+
+              executable_depth_complete:
+                executableDepthComplete,
+            };
+
+            const signals = {
+              ...market.signals,
+
+              execution_available:
+                execution
+                  ?.available ===
+                true,
+
+              execution_venue:
+                execution
+                  ?.venue ??
+                null,
+
+              executable_depth_complete:
+                executableDepthComplete,
+            };
+
+            return {
+              ...market,
+
+              /*
+               * Indexed reserve/inventory state.
+               */
+              liquidity,
+
+              /*
+               * Live executable quotes against the
+               * canonical ReLaunchTradeRouter.
+               */
+              execution,
+
+              signals,
+            };
+          },
+        );
+
       return {
         window:
           windowName,
@@ -2096,6 +2331,12 @@ export function registerTrendingRoute(
 
         market_context_model:
           "token_metadata_and_curve_state_v1",
+
+        liquidity_model:
+          "lifecycle_market_quality_v1",
+
+        execution_model:
+          "trade_router_depth_v1",
 
         discovery_model:
           "new_and_trending_v1",
@@ -2128,10 +2369,10 @@ export function registerTrendingRoute(
           "transaction_origin",
 
         count:
-          rankedMarkets.length,
+          enrichedMarkets.length,
 
         markets:
-          rankedMarkets,
+          enrichedMarkets,
       };
     },
   );
