@@ -30,6 +30,23 @@ const CHUNK_SIZE =
       "1000",
   );
 
+const CHECKPOINT_HISTORY_LIMIT =
+  Number(
+    process.env.RHC_RPC_CHECKPOINT_HISTORY_LIMIT ??
+      "4096",
+  );
+
+if (
+  !Number.isSafeInteger(
+    CHECKPOINT_HISTORY_LIMIT,
+  ) ||
+  CHECKPOINT_HISTORY_LIMIT < 2
+) {
+  throw new Error(
+    "RHC_RPC_CHECKPOINT_HISTORY_LIMIT must be an integer >= 2",
+  );
+}
+
 const ADDRESS_BATCH_SIZE = 50;
 
 const curveCreatedEvent =
@@ -1689,6 +1706,30 @@ async function rememberCheckpoint(
       blockHash,
     ],
   );
+
+  await sql.query(
+    `
+      WITH stale AS (
+        SELECT
+          block_number
+        FROM ingestion_checkpoints
+        WHERE source = $1
+        ORDER BY
+          block_number DESC
+        OFFSET $2
+      )
+      DELETE FROM ingestion_checkpoints AS checkpoint
+      USING stale
+      WHERE
+        checkpoint.source = $1
+        AND checkpoint.block_number =
+          stale.block_number
+    `,
+    [
+      SOURCE,
+      CHECKPOINT_HISTORY_LIMIT,
+    ],
+  );
 }
 
 
@@ -1834,35 +1875,10 @@ async function verifyOrRecoverCheckpoint({
     /*
      * Ensure upgraded databases also retain the current valid checkpoint.
      */
-    await db.query(
-      `
-        INSERT INTO ingestion_checkpoints (
-          source,
-          block_number,
-          block_hash,
-          recorded_at
-        )
-        VALUES (
-          $1,
-          $2,
-          $3,
-          NOW()
-        )
-        ON CONFLICT (
-          source,
-          block_number
-        )
-        DO UPDATE SET
-          block_hash =
-            EXCLUDED.block_hash,
-          recorded_at =
-            NOW()
-      `,
-      [
-        SOURCE,
-        lastProcessedBlock.toString(),
-        canonicalHash,
-      ],
+    await rememberCheckpoint(
+      db,
+      lastProcessedBlock,
+      canonicalHash,
     );
 
     return {
